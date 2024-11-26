@@ -11,3 +11,4 @@ test/fixtures/**
 dist
 coverage
 BadEntity.json
+.env
