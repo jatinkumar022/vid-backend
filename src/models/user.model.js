@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 
-const userScema = new mongoose.Schema(
+const userSchema = new mongoose.Schema(
   {
     username: {
       type: String,
@@ -35,7 +35,7 @@ const userScema = new mongoose.Schema(
     },
     watchHistory: [
       {
-        type: Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: "Video"
       }
     ],
@@ -52,18 +52,18 @@ const userScema = new mongoose.Schema(
   }
 )
 
-userScema.pre("save", async function (next) {
+userSchema.pre("save", async function (next) {
   if (!this.isModified('password')) return next();
 
-  this.password = bcrypt.hash(this.password, 10);
+  this.password = await bcrypt.hash(this.password, 10);
   next();
 })
 
-userScema.methods.isPasswordCorrect = async function (password) {
+userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password)
 }
 
-userScema.methods.generateAccessToken = function () {
+userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     {
       _id: this._id,
@@ -80,7 +80,7 @@ userScema.methods.generateAccessToken = function () {
   )
 }
 
-userScema.methods.generateRefreshToken = function () {
+userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {
       _id: this._id,
@@ -95,4 +95,4 @@ userScema.methods.generateRefreshToken = function () {
   )
 }
 
-export const User = mongoose.model("User", userScema)
+export const User = mongoose.model("User", userSchema)
