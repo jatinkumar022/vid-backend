@@ -183,7 +183,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 })
 
 
-const refreshAccessToken = asyncHandler(async (res, res) => {
+const refreshAccessToken = asyncHandler(async (req, res) => {
   const incommingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
 
   if (!incommingRefreshToken) {
