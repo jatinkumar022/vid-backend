@@ -26,7 +26,16 @@ const uploadOnCloudinary = async (localFilePath) => {
     fs.unlinkSync(localFilePath)   //Remove the locally saved temp file
     return null
   }
-
 }
 
-export { uploadOnCloudinary }
+const deleteOldImage = async (oldImagePath) => {
+  try {
+    if (!oldImagePath) return null;
+    const result = await cloudinary.uploader.destroy(publicId);
+    return result;
+  } catch (error) {
+    return null
+  }
+}
+
+export { uploadOnCloudinary, deleteOldImage }
