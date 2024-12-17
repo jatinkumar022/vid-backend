@@ -8,9 +8,68 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js"
 
 
 const getAllVideos = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
-    //TODO: get all videos based on query, sort, pagination
-})
+    const {
+        page = 1,
+        limit = 10,
+        query = "",
+        sortBy = "createdAt",
+        sortType = "desc",
+        userId
+    } = req.query;
+
+    // Validate page and limit inputs
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+    if (pageNumber <= 0 || limitNumber <= 0) {
+        throw new ApiError(400, "Page and limit must be positive integers");
+    }
+
+    // Base query object
+    const queryObject = {};
+
+    // Query: Search by title or description (case-insensitive)
+    if (query) {
+        queryObject.$or = [
+            { title: { $regex: query, $options: "i" } },
+            { description: { $regex: query, $options: "i" } }
+        ];
+    }
+
+    // Filter by userId if provided
+    if (userId) {
+        if (!isValidObjectId(userId)) {
+            throw new ApiError(400, "Invalid userId");
+        }
+        queryObject.owner = userId;
+    }
+
+    // Sorting
+    const sortOptions = {};
+    sortOptions[sortBy] = sortType === "asc" ? 1 : -1;
+
+    // Fetch videos with pagination, filtering, and sorting
+    const videos = await Video.find(queryObject)
+        .populate("owner", "name email") // Populate owner details (name and email)
+        .sort(sortOptions)
+        .skip((pageNumber - 1) * limitNumber) // Pagination skip
+        .limit(limitNumber); // Pagination limit
+
+    // Total count for pagination meta
+    const totalVideos = await Video.countDocuments(queryObject);
+
+    // Prepare the response
+    return res.status(200).json(
+        new ApiResponse(200, {
+            videos,
+            meta: {
+                total: totalVideos,
+                page: pageNumber,
+                limit: limitNumber,
+                totalPages: Math.ceil(totalVideos / limitNumber),
+            },
+        }, "Videos fetched successfully")
+    );
+});
 
 const publishAVideo = asyncHandler(async (req, res) => {
     const { title, description } = req.body
@@ -63,6 +122,10 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+    if (!mongoose.isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
+    }
+    const video = await Video.findById(videoId);
 
     return res
         .status(200)
@@ -77,7 +140,9 @@ const getVideoById = asyncHandler(async (req, res) => {
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-
+    if (!mongoose.isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
+    }
     const { title, description } = req.body
     if (!title || !description) {
         throw new ApiError(400, "All fields are required")
@@ -119,7 +184,9 @@ const updateVideo = asyncHandler(async (req, res) => {
 
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-
+    if (!mongoose.isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
+    }
     const deleteVideo = await Video.deleteOne({ _id: videoId });
 
     return res
@@ -130,7 +197,9 @@ const deleteVideo = asyncHandler(async (req, res) => {
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-
+    if (!mongoose.isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
+    }
     const { isPublished } = req.body
 
 
