@@ -17,7 +17,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
     }
 
     const comments = await Comment.find({ video: videoId })
-        .populate("owner", "name email") // Populate user details
+        .populate("owner", "username avatar") // Populate user details
         .sort({ createdAt: -1 }) // Sort by newest first
         .skip((pageNumber - 1) * limitNumber) // Pagination skip
         .limit(limitNumber); // Pagination limit
@@ -41,7 +41,6 @@ const addComment = asyncHandler(async (req, res) => {
     // Add a comment to a video
     const { videoId } = req.params;
     const { content } = req.body;
-
     if (!mongoose.isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video ID");
     }

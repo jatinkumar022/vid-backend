@@ -49,7 +49,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
     // Fetch videos with pagination, filtering, and sorting
     const videos = await Video.find(queryObject)
-        .populate("owner", "name email") // Populate owner details (name and email)
+        .populate("owner", "avatar fullName username") // Populate owner details (name and email)
         .sort(sortOptions)
         .skip((pageNumber - 1) * limitNumber) // Pagination skip
         .limit(limitNumber); // Pagination limit
@@ -82,7 +82,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
     const videoFileLocalPath = req.files?.videoFile[0]?.path;
     const thumbnaiLocalPath = req.files?.thumbnail[0]?.path;
-
+    console.log({ thumbnaiLocalPath })
     if (!videoFileLocalPath) {
         throw new ApiError(400, "Video file is required")
     }
@@ -122,10 +122,11 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+
     if (!mongoose.isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video ID");
     }
-    const video = await Video.findById(videoId);
+    const video = await Video.findById(videoId).populate("owner", "username");
 
     return res
         .status(200)
@@ -137,6 +138,35 @@ const getVideoById = asyncHandler(async (req, res) => {
             )
         )
 })
+
+const getAllVideosByChannel = asyncHandler(async (req, res) => {
+    const { channelId } = req.params;
+
+    // Validate the channelId (userId)
+    if (!isValidObjectId(channelId)) {
+        throw new ApiError(400, "Invalid channelId");
+    }
+
+    // Fetch videos uploaded by the user (channelId)
+    const videos = await Video.find({ owner: channelId })
+        .populate("owner", "avatar fullName username") // Populate owner details (e.g., name, avatar)
+        .sort({ createdAt: -1 }); // Sort videos by the most recent
+
+    // Check if the user has uploaded any videos
+    if (!videos.length) {
+        throw new ApiError(404, "No videos found for this channel");
+    }
+
+
+    // Respond with the videos
+    return res.status(200).json(
+        new ApiResponse(200, {
+            videos,
+            totalVideos: videos.length
+        }, "Videos fetched successfully for the channel")
+    );
+});
+
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
@@ -230,5 +260,6 @@ export {
     getVideoById,
     updateVideo,
     deleteVideo,
-    togglePublishStatus
+    togglePublishStatus,
+    getAllVideosByChannel
 }

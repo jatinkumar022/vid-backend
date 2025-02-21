@@ -84,11 +84,11 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
  * @param {Object} res - Express response object.
  */
 const getSubscribedChannels = asyncHandler(async (req, res) => {
-    const { userId } = req.params;
+
     const currentUserId = req.user._id;
 
     // Determine the target user ID
-    const targetUserId = userId || currentUserId;
+    const targetUserId = currentUserId;
 
     // Validate targetUserId
     if (!isValidObjectId(targetUserId)) {
@@ -101,11 +101,13 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
         throw new ApiError(404, 'User not found');
     }
 
+
     // Find all subscriptions where the subscriber is the target user
-    const subscriptions = await Subscription.find({ subscriber: targetUserId }).populate('channel', 'username email');
+    const subscriptions = await Subscription.find({ subscriber: targetUserId }).populate('channel', 'username avatar fullName');
 
     // Extract channel information
     const subscribedChannels = subscriptions.map(sub => sub.channel);
+
 
     return res.status(200).json(new ApiResponse(200, subscribedChannels, 'Subscribed channels fetched successfully'));
 });
