@@ -3,6 +3,7 @@ import { Playlist } from "../models/playlist.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { Subscription } from "../models/subscription.model.js";
 
 // Create a Playlist
 const createPlaylist = asyncHandler(async (req, res) => {
@@ -32,7 +33,14 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid user ID");
     }
 
-    const playlists = await Playlist.find({ owner: userId }).sort({ createdAt: -1 });
+    const playlists = await Playlist.find({ owner: userId }).sort({ createdAt: -1 }).populate({
+        path: 'videos',
+        select: 'thumbnail ',
+        populate: {
+            path: 'owner', // Populate owner in each video
+            select: 'fullName', // Select only the owner's full name and avatar
+        }, // Select only title, views, and thumbnail from videos
+    });
 
     return res.status(200).json(
         new ApiResponse(200, playlists, "User playlists fetched successfully")
@@ -47,7 +55,19 @@ const getPlaylistById = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid playlist ID");
     }
 
-    const playlist = await Playlist.findById(playlistId).populate("videos", "title thumbnail duration");
+    const playlist = await Playlist.findById(playlistId)
+        .populate({
+            path: 'videos',
+            populate: {
+                path: 'owner', // Populate owner in each video
+                select: 'fullName avatar username', // Select only the owner's full name and avatar
+            },
+            select: 'title views thumbnail createdAt duration', // Select only title, views, and thumbnail from videos
+        })
+        .populate({
+            path: 'owner', // Populate owner of the playlist
+            select: 'avatar fullName _id', // Select avatar, full name, and ID for the playlist owner
+        });
 
     if (!playlist) {
         throw new ApiError(404, "Playlist not found");
@@ -151,6 +171,45 @@ const updatePlaylist = asyncHandler(async (req, res) => {
         new ApiResponse(200, updatedPlaylist, "Playlist updated successfully")
     );
 });
+const getSubscribedChannelPlaylists = asyncHandler(async (req, res) => {
+    const userId = req.user._id; // Assuming the user is authenticated
+
+    // Find channels the user has subscribed to
+    const subscriptions = await Subscription.find({ subscriber: userId }).populate('channel');
+
+    if (!subscriptions || subscriptions.length === 0) {
+        throw new ApiError(404, "No subscriptions found for the user");
+    }
+
+    // Extract channel IDs from subscriptions
+    const channelIds = subscriptions.map(sub => sub.channel._id);
+
+    // Find playlists associated with these channels
+    const playlists = await Playlist.find({ owner: { $in: channelIds } })
+        .populate({
+            path: 'videos',
+            select: 'title views thumbnail', // Select necessary video fields
+            populate: {
+                path: 'owner', // Populate owner in each video
+                select: 'fullName username', // Select only the owner's full name and username
+            },
+        })
+        .populate({
+            path: 'owner', // Populate owner of the playlist (the channel)
+            select: 'fullName avatar', // Select the channel's full name and avatar
+        });
+
+    if (!playlists || playlists.length === 0) {
+        return res.status(200).json(
+            new ApiResponse(200, [], "No playlists found for subscribed channels")
+        );
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, playlists, "Subscribed channel playlists fetched successfully")
+    );
+});
+
 
 export {
     createPlaylist,
@@ -160,4 +219,5 @@ export {
     removeVideoFromPlaylist,
     deletePlaylist,
     updatePlaylist,
+    getSubscribedChannelPlaylists
 };
