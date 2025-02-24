@@ -254,6 +254,53 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 
 })
 
+const incrementVideoViews = asyncHandler(async (req, res) => {
+    const { videoId } = req.params;
+
+    // Ensure the video ID is valid
+    if (!mongoose.isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
+    }
+
+    // Find the video
+    const video = await Video.findById(videoId);
+    if (!video) {
+        throw new ApiError(404, "Video not found");
+    }
+
+    // Check if the user is authenticated and has already watched the video
+    if (req.user) {
+        const user = await User.findById(req.user._id);
+
+        // Check if the video is already in the user's watch history
+        const hasWatched = user.watchHistory.some(
+            (entry) => entry && entry.videoId && entry.videoId.toString() === videoId
+        );
+
+        if (!hasWatched) {
+            // Increment the view count if the user hasn't watched it yet
+            video.views += 1;
+            await video.save();
+
+            // Add the video to the user's watch history with the current timestamp
+            user.watchHistory.push({
+                videoId: videoId,
+                watchedAt: new Date() // Save the current date and time
+            });
+            await user.save();
+        }
+    } else {
+        // If the user is not logged in, increment views based on their session (optional)
+        video.views += 1;
+        await video.save();
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, video, "View count incremented successfully")
+    );
+});
+
+
 export {
     getAllVideos,
     publishAVideo,
@@ -261,5 +308,6 @@ export {
     updateVideo,
     deleteVideo,
     togglePublishStatus,
-    getAllVideosByChannel
+    getAllVideosByChannel,
+    incrementVideoViews
 }

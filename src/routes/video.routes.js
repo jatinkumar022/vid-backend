@@ -4,6 +4,7 @@ import {
     getAllVideos,
     getAllVideosByChannel,
     getVideoById,
+    incrementVideoViews,
     publishAVideo,
     togglePublishStatus,
     updateVideo,
@@ -38,7 +39,7 @@ router
     .delete(deleteVideo)
     .patch(upload.single("thumbnail"), updateVideo);
 router.route("/c/:channelId").get(getAllVideosByChannel)
-
+router.patch('/:videoId/views', incrementVideoViews);
 router.route("/toggle/publish/:videoId").patch(togglePublishStatus);
 
 export default router
