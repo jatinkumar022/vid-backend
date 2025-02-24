@@ -435,11 +435,19 @@ const getWatchHistory = asyncHandler(async (req, res) => {
             }
         },
         {
+            $project: {
+                watchHistory: 1
+            }
+        },
+        {
+            $unwind: "$watchHistory" // Unwind the watchHistory array to access individual entries
+        },
+        {
             $lookup: {
                 from: "videos",
-                localField: "watchHistory",
+                localField: "watchHistory.videoId", // Use videoId from each watchHistory entry
                 foreignField: "_id",
-                as: "watchHistory",
+                as: "videoDetails",
                 pipeline: [
                     {
                         $lookup: {
@@ -460,26 +468,38 @@ const getWatchHistory = asyncHandler(async (req, res) => {
                     },
                     {
                         $addFields: {
-                            owner: {
-                                $first: "$owner"
-                            }
+                            owner: { $first: "$owner" }
                         }
                     }
                 ]
             }
+        },
+        {
+            $unwind: "$videoDetails" // Unwind the videoDetails array to merge the video data
+        },
+        {
+            $addFields: {
+                watchedAt: "$watchHistory.watchedAt", // Include the watchedAt timestamp
+                video: "$videoDetails" // Rename videoDetails to video for clarity
+            }
+        },
+        {
+            $project: {
+                watchHistory: 0, // Exclude watchHistory field (no longer needed)
+                videoDetails: 0 // Exclude raw videoDetails field
+            }
         }
-    ])
+    ]);
 
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                user[0].watchHistory,
-                "Watch history fetched successfully"
-            )
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            user,
+            "Watch history fetched successfully"
         )
-})
+    );
+});
+
 
 
 export {
