@@ -6,7 +6,6 @@ import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 
-
 const getAllVideos = asyncHandler(async (req, res) => {
     const {
         page = 1,
@@ -69,6 +68,51 @@ const getAllVideos = asyncHandler(async (req, res) => {
             },
         }, "Videos fetched successfully")
     );
+});
+
+const getSearchSuggestions = asyncHandler(async (req, res) => {
+    const { query } = req.query;
+    if (!query) {
+        return res.status(400).json({ success: false, message: 'Query parameter is required.' });
+    }
+
+    // Search for videos that match the query (in title)
+    const suggestions = await Video.find({
+        title: { $regex: query, $options: 'i' }
+    }).select('title _id'); // Return only necessary fields
+
+    return res.status(200).json({ success: true, data: suggestions });
+});
+
+// Controller to handle full search for videos
+const searchVideos = asyncHandler(async (req, res) => {
+    const { query, sort, filter } = req.query; // Add sort and filter for advanced search functionality
+
+    if (!query) {
+        return res.status(400).json({ success: false, message: 'Query parameter is required.' });
+    }
+
+    // Video search logic with optional sort and filter
+    let queryCondition = { title: { $regex: query, $options: 'i' } }; // Case-insensitive search
+
+    // Add filter logic (example: filtering by category, tags, etc.)
+    if (filter) {
+        queryCondition = { ...queryCondition, category: filter }; // Example filter by category
+    }
+
+    // Perform the video search
+    let videos = Video.find(queryCondition).select('title _id views thumbnail');
+
+    // Sorting (example: by views or upload date)
+    if (sort === 'views') {
+        videos = videos.sort({ views: -1 });
+    } else if (sort === 'date') {
+        videos = videos.sort({ createdAt: -1 });
+    }
+
+    // Execute query and return results
+    videos = await videos;
+    return res.status(200).json({ success: true, data: videos });
 });
 
 const publishAVideo = asyncHandler(async (req, res) => {
@@ -309,5 +353,6 @@ export {
     deleteVideo,
     togglePublishStatus,
     getAllVideosByChannel,
-    incrementVideoViews
+    incrementVideoViews,
+    searchVideos, getSearchSuggestions
 }
