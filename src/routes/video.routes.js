@@ -3,9 +3,11 @@ import {
     deleteVideo,
     getAllVideos,
     getAllVideosByChannel,
+    getSearchSuggestions,
     getVideoById,
     incrementVideoViews,
     publishAVideo,
+    searchVideos,
     togglePublishStatus,
     updateVideo,
 } from "../controllers/video.controller.js"
@@ -14,6 +16,8 @@ import { upload } from "../middlewares/multer.middleware.js"
 
 const router = Router();
 router.use(verifyJWT); // Apply verifyJWT middleware to all routes in this file
+router.get('/suggestions', getSearchSuggestions); // Explicit /suggestions route
+router.get('/search', searchVideos); // Explicit /search route for full video search
 
 router
     .route("/")
@@ -41,5 +45,6 @@ router
 router.route("/c/:channelId").get(getAllVideosByChannel)
 router.patch('/:videoId/views', incrementVideoViews);
 router.route("/toggle/publish/:videoId").patch(togglePublishStatus);
+
 
 export default router
