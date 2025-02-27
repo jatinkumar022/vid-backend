@@ -79,38 +79,32 @@ const getSearchSuggestions = asyncHandler(async (req, res) => {
     // Search for videos that match the query (in title)
     const suggestions = await Video.find({
         title: { $regex: query, $options: 'i' }
-    }).select('title _id'); // Return only necessary fields
+    }).select('title _id');
 
     return res.status(200).json({ success: true, data: suggestions });
 });
 
 // Controller to handle full search for videos
 const searchVideos = asyncHandler(async (req, res) => {
-    const { query, sort, filter } = req.query; // Add sort and filter for advanced search functionality
-
+    const { query, sort, filter } = req.query;
     if (!query) {
         return res.status(400).json({ success: false, message: 'Query parameter is required.' });
     }
 
-    // Video search logic with optional sort and filter
-    let queryCondition = { title: { $regex: query, $options: 'i' } }; // Case-insensitive search
+    let queryCondition = { title: { $regex: query, $options: 'i' } };
 
-    // Add filter logic (example: filtering by category, tags, etc.)
     if (filter) {
-        queryCondition = { ...queryCondition, category: filter }; // Example filter by category
+        queryCondition = { ...queryCondition, category: filter };
     }
 
-    // Perform the video search
     let videos = Video.find(queryCondition).select('title _id views thumbnail');
 
-    // Sorting (example: by views or upload date)
     if (sort === 'views') {
         videos = videos.sort({ views: -1 });
     } else if (sort === 'date') {
         videos = videos.sort({ createdAt: -1 });
     }
 
-    // Execute query and return results
     videos = await videos;
     return res.status(200).json({ success: true, data: videos });
 });
@@ -186,23 +180,19 @@ const getVideoById = asyncHandler(async (req, res) => {
 const getAllVideosByChannel = asyncHandler(async (req, res) => {
     const { channelId } = req.params;
 
-    // Validate the channelId (userId)
     if (!isValidObjectId(channelId)) {
         throw new ApiError(400, "Invalid channelId");
     }
 
-    // Fetch videos uploaded by the user (channelId)
     const videos = await Video.find({ owner: channelId })
-        .populate("owner", "avatar fullName username") // Populate owner details (e.g., name, avatar)
-        .sort({ createdAt: -1 }); // Sort videos by the most recent
+        .populate("owner", "avatar fullName username")
+        .sort({ createdAt: -1 });
 
-    // Check if the user has uploaded any videos
     if (!videos.length) {
         throw new ApiError(404, "No videos found for this channel");
     }
 
 
-    // Respond with the videos
     return res.status(200).json(
         new ApiResponse(200, {
             videos,
@@ -297,50 +287,48 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
         )
 
 })
-
 const incrementVideoViews = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
 
-    // Ensure the video ID is valid
     if (!mongoose.isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video ID");
     }
 
-    // Find the video
     const video = await Video.findById(videoId);
     if (!video) {
         throw new ApiError(404, "Video not found");
     }
 
-    // Check if the user is authenticated and has already watched the video
     if (req.user) {
         const user = await User.findById(req.user._id);
 
-        // Check if the video is already in the user's watch history
-        const hasWatched = user.watchHistory.some(
-            (entry) => entry && entry.videoId && entry.videoId.toString() === videoId
+        const existingHistoryIndex = user.watchHistory.findIndex(
+            (entry) => entry.videoId && entry.videoId.toString() === videoId
         );
 
-        if (!hasWatched) {
-            // Increment the view count if the user hasn't watched it yet
+        if (existingHistoryIndex !== -1) {
+            // Update watched time
+            user.watchHistory[existingHistoryIndex].watchedAt = new Date();
+        } else {
+            // Increment view count and add new history entry
             video.views += 1;
-            await video.save();
-
-            // Add the video to the user's watch history with the current timestamp
             user.watchHistory.push({
                 videoId: videoId,
-                watchedAt: new Date() // Save the current date and time
+                watchedAt: new Date(),
             });
-            await user.save();
         }
+
+        // Save user and video data
+        await user.save();
+        await video.save();
     } else {
-        // If the user is not logged in, increment views based on their session (optional)
+        // If no user is logged in, just increment the view count
         video.views += 1;
         await video.save();
     }
 
     return res.status(200).json(
-        new ApiResponse(200, video, "View count incremented successfully")
+        new ApiResponse(200, video, "View count incremented and watched time updated successfully")
     );
 });
 
